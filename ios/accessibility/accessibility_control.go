@@ -261,6 +261,7 @@ func (a *ControlInterface) Move(direction MoveDirection) {
 // returns the next element change response.
 func (a *ControlInterface) AwaitElementChanged(ctx context.Context) (AXElementData, error) {
 	resp, err := a.awaitHostInspectorCurrentElementChanged(ctx)
+	log.Infof("awaitHostInspectorCurrentElementChanged response: %+v", resp)
 	if err != nil {
 		return AXElementData{}, err
 	}

@@ -258,6 +258,7 @@ func (a *ControlInterface) Move(ctx context.Context, direction MoveDirection) (A
 	log.Info("before changed")
 
 	resp, err := a.awaitHostInspectorCurrentElementChanged(ctx)
+	log.Infof("awaitHostInspectorCurrentElementChanged response: %+v", resp)
 	if err != nil {
 		return AXElementData{}, err
 	}

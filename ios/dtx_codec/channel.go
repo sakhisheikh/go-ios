@@ -166,15 +166,19 @@ func (d *Channel) sendAndAwaitReply(ctx context.Context, expectsReply bool, mess
 }
 
 func (d *Channel) Dispatch(msg Message) {
+	log.Infof("Dispatch: received msg id=%d type=%d convIndex=%d", msg.Identifier, msg.PayloadHeader.MessageType, msg.ConversationIndex)
 	d.mutex.Lock()
 	if msg.Identifier >= d.messageIdentifier {
 		d.messageIdentifier = msg.Identifier + 1
 	}
 	if msg.PayloadHeader.MessageType == Methodinvocation {
-		log.Trace("Dispatching:", msg.Payload[0].(string))
-		if v, ok := d.registeredMethods[msg.Payload[0].(string)]; ok {
+		selector := msg.Payload[0].(string)
+		log.Infof("Dispatch: method invocation selector=%s", selector)
+		if v, ok := d.registeredMethods[selector]; ok {
+			log.Infof("Dispatch: delivering to registered method channel selector=%s", selector)
 			d.mutex.Unlock()
 			v <- msg
+			log.Infof("Dispatch: delivered to registered method channel selector=%s", selector)
 			return
 		}
 	}

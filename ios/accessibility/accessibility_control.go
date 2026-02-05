@@ -229,10 +229,10 @@ func (a *ControlInterface) SwitchToDevice() {
 	a.deviceInspectorShowIgnoredElements(false)
 	a.deviceSetAuditTargetPid(0)
 	a.deviceInspectorFocusOnElement()
-	// _, err := a.awaitHostInspectorCurrentElementChanged(context.Background())
-	// if err != nil {
-	// 	log.Warnf("await element change failed during SwitchToDevice: %v", err)
-	// }
+	_, err := a.awaitHostInspectorCurrentElementChanged(context.Background())
+	if err != nil {
+		log.Warnf("await element change failed during SwitchToDevice: %v", err)
+	}
 	a.deviceInspectorPreviewOnElement()
 	a.deviceHighlightIssue()
 }
@@ -242,10 +242,10 @@ func (a *ControlInterface) TurnOff() {
 	a.deviceInspectorSetMonitoredEventType(0)
 	a.awaitHostInspectorMonitoredEventTypeChanged()
 	a.deviceInspectorFocusOnElement()
-	// _, err := a.awaitHostInspectorCurrentElementChanged(context.Background())
-	// if err != nil {
-	// 	log.Warnf("await element change failed during TurnOff: %v", err)
-	// }
+	_, err := a.awaitHostInspectorCurrentElementChanged(context.Background())
+	if err != nil {
+		log.Warnf("await element change failed during TurnOff: %v", err)
+	}
 	a.deviceInspectorPreviewOnElement()
 	a.deviceHighlightIssue()
 	a.deviceInspectorShowVisuals(false)

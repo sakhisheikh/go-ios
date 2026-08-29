@@ -38,11 +38,32 @@ type Tunnel struct {
 	UserspaceTUN     bool `json:"userspaceTun"`
 	UserspaceTUNPort int  `json:"userspaceTunPort"`
 	closer           func() error
+	// done closes when the data plane exits, independently of whether Close was
+	// called. TunnelManager uses it to discard and recreate a kernel tunnel
+	// whose usbmux socket broke while the USB device still enumerates normally.
+	done <-chan struct{}
 }
 
 // Close closes the connection to the device and removes the virtual network interface from the host
 func (t Tunnel) Close() error {
+	if t.closer == nil {
+		return nil
+	}
 	return t.closer()
+}
+
+// IsClosed reports that the tunnel's data plane has exited. Tunnels created by
+// older/custom starters without a health channel retain the legacy behaviour.
+func (t Tunnel) IsClosed() bool {
+	if t.done == nil {
+		return false
+	}
+	select {
+	case <-t.done:
+		return true
+	default:
+		return false
+	}
 }
 
 // ManualPairAndConnectToTunnel tries to verify an existing pairing, and if this fails it triggers a new manual pairing process.

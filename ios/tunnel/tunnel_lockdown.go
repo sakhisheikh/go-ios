@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"sync"
 
 	"github.com/danielpaulus/go-ios/ios"
 	"github.com/danielpaulus/go-ios/ios/golog"
@@ -39,11 +40,25 @@ func connectToTunnelLockdown(ctx context.Context, device ios.DeviceEntry, connTo
 	// doing it like this allows us to have a context with a timeout for the tunnel creation, but the tunnel itself
 	tunnelCtx, cancel := context.WithCancel(context.WithoutCancel(ctx))
 
+	done := make(chan struct{})
+	var (
+		shutdownOnce sync.Once
+		shutdownErr  error
+	)
+	shutdown := func() {
+		shutdownOnce.Do(func() {
+			cancel()
+			shutdownErr = errors.Join(utunIface.Close(), connToDevice.Close())
+			close(done)
+		})
+	}
+
 	go func() {
 		err := forwardTCPToInterface(tunnelCtx, tunnelInfo.ClientParameters.Mtu, connToDevice, utunIface)
 		if err != nil {
 			golog.Error("failed to forward data to tunnel interface", "module", logModule, "udid", device.Properties.SerialNumber, "error", err)
 		}
+		shutdown()
 	}()
 
 	go func() {
@@ -51,17 +66,19 @@ func connectToTunnelLockdown(ctx context.Context, device ios.DeviceEntry, connTo
 		if err != nil {
 			golog.Error("failed to forward data to the device", "module", logModule, "udid", device.Properties.SerialNumber, "error", err)
 		}
+		shutdown()
 	}()
 
 	closeFunc := func() error {
-		cancel()
-		return errors.Join(utunIface.Close(), connToDevice.Close())
+		shutdown()
+		return shutdownErr
 	}
 	return Tunnel{
 		Address: tunnelInfo.ServerAddress,
 		RsdPort: int(tunnelInfo.ServerRSDPort),
 		Udid:    device.Properties.SerialNumber,
 		closer:  closeFunc,
+		done:    done,
 	}, nil
 }
 

@@ -79,6 +79,13 @@ type Session struct {
 	// point on, so the next gesture re-negotiates instead.
 	streamLost atomic.Bool
 
+	// externalStreamManaged is enabled by callers that already own the one
+	// CoreDevice media stream used for visible capture. In that mode this
+	// session uses the external stream as dtuhidd's authentication gate instead
+	// of negotiating a second display stream, which can wedge mediastreamd.
+	externalStreamManaged bool
+	externalStreamActive  bool
+
 	// contactDown tracks a contact held by the streaming Touch* methods, so a
 	// session that is closed mid-gesture can lift it instead of leaving the
 	// device believing a finger is still on the screen.
@@ -436,6 +443,9 @@ func (s *Session) Close() error {
 func (s *Session) StreamActive() bool {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
+	if s.externalStreamManaged {
+		return s.externalStreamActive
+	}
 	return s.displayService != nil && !s.streamLost.Load()
 }
 
@@ -455,6 +465,33 @@ func (s *Session) EnsureStream(ctx context.Context) error {
 		return err
 	}
 	return s.ensureStream(ctx)
+}
+
+// UseExternalMediaStream tells the HID session that its authentication gate is
+// owned by the caller's visible CoreDevice display stream. Once enabled, the
+// session never negotiates a private media stream. The caller must update the
+// active state with SetExternalMediaStreamActive before sending input.
+func (s *Session) UseExternalMediaStream() {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	s.externalStreamManaged = true
+	s.externalStreamActive = false
+	// A caller switching an established session to shared mode must not leave
+	// the old hidden stream running beside the visible one.
+	if s.displayService != nil {
+		s.teardownStream()
+	}
+}
+
+// SetExternalMediaStreamActive updates whether the caller-owned display stream
+// is currently holding dtuhidd's touch/keyboard authentication gate open.
+func (s *Session) SetExternalMediaStreamActive(active bool) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	if !s.externalStreamManaged {
+		return
+	}
+	s.externalStreamActive = active
 }
 
 // beginGatedGesture is the common preamble for gestures that need the auth gate
@@ -483,6 +520,12 @@ func (s *Session) checkOpen() error {
 // On any failure it tears down whatever was already set up, so a failed gesture
 // leaves no half-open stream behind and the next attempt starts clean.
 func (s *Session) ensureStream(ctx context.Context) error {
+	if s.externalStreamManaged {
+		if s.externalStreamActive {
+			return nil
+		}
+		return ErrExternalMediaStreamInactive
+	}
 	if s.displayService != nil {
 		if !s.streamLost.Load() {
 			return nil

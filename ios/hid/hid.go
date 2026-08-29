@@ -42,11 +42,16 @@
 package hid
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/danielpaulus/go-ios/ios"
 	"github.com/danielpaulus/go-ios/ios/xpc"
 )
+
+// ErrExternalMediaStreamInactive means a session configured to share its
+// caller's visible display stream received input before that stream was ready.
+var ErrExternalMediaStreamInactive = errors.New("external media stream is not active")
 
 const (
 	indigoServiceName    = "com.apple.coredevice.hid.indigo"
@@ -111,7 +116,10 @@ func NewIndigo(device ios.DeviceEntry) (*IndigoConnection, error) {
 // usagePage and usageCode identify the button in HID terms - page 0x0C
 // (Consumer) covers the media buttons, page 0x09 (Button) the generic ones.
 func (c *IndigoConnection) SendButton(usagePage, usageCode uint64, state ButtonState) error {
-	if err := c.conn.Send(buildButtonPayload(usagePage, usageCode, state), xpc.HeartbeatRequestFlag); err != nil {
+	// Button events are one-way. Marking them as heartbeat/reply requests while
+	// never draining replies eventually fills and cancels the server-client XPC
+	// stream during bursty input.
+	if err := c.conn.Send(buildButtonPayload(usagePage, usageCode, state)); err != nil {
 		return fmt.Errorf("SendButton: failed to send button event: %w", err)
 	}
 	return nil
@@ -164,7 +172,10 @@ func (c *UniversalConnection) SendReport(serviceID uint64, report []byte) error 
 	if len(report) == 0 {
 		return fmt.Errorf("SendReport: report is empty")
 	}
-	if err := c.conn.Send(buildSendReportPayload(serviceID, report), xpc.HeartbeatRequestFlag); err != nil {
+	// sendReport is explicitly one-way (matching devicectl/pymobiledevice3).
+	// Requesting a reply here but never reading it closes dtuhidd's channel after
+	// only a handful of rapid touch or keyboard reports.
+	if err := c.conn.Send(buildSendReportPayload(serviceID, report)); err != nil {
 		return fmt.Errorf("SendReport: failed to send report to surface %d: %w", serviceID, err)
 	}
 	return nil

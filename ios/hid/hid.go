@@ -42,11 +42,16 @@
 package hid
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/danielpaulus/go-ios/ios"
 	"github.com/danielpaulus/go-ios/ios/xpc"
 )
+
+// ErrExternalMediaStreamInactive means a session configured to share its
+// caller's visible display stream received input before that stream was ready.
+var ErrExternalMediaStreamInactive = errors.New("external media stream is not active")
 
 const (
 	indigoServiceName    = "com.apple.coredevice.hid.indigo"

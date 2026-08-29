@@ -107,6 +107,23 @@ func TestUserspaceTunnelIsRejectedForStreams(t *testing.T) {
 	assert.False(t, s.StreamActive(), "a rejected stream must leave no state behind")
 }
 
+func TestExternalMediaStreamAuthenticatesWithoutPrivateNegotiation(t *testing.T) {
+	s := &Session{hid: &UniversalConnection{}}
+	s.UseExternalMediaStream()
+
+	err := s.EnsureStream(context.Background())
+	assert.ErrorIs(t, err, ErrExternalMediaStreamInactive)
+	assert.False(t, s.StreamActive())
+
+	s.SetExternalMediaStreamActive(true)
+	require.NoError(t, s.EnsureStream(context.Background()))
+	assert.True(t, s.StreamActive())
+	assert.Nil(t, s.displayService, "shared mode must not negotiate a second display stream")
+
+	s.SetExternalMediaStreamActive(false)
+	assert.False(t, s.StreamActive())
+}
+
 // A stray release, which an input stream can produce, must not error or reach
 // the device.
 func TestTouchUpWithoutDownIsNoop(t *testing.T) {

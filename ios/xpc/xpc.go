@@ -5,6 +5,7 @@ package xpc
 import (
 	"fmt"
 	"io"
+	"sync"
 
 	"golang.org/x/net/http2"
 )
@@ -14,6 +15,7 @@ type Connection struct {
 	connectionCloser io.Closer
 	framer           *http2.Framer
 	msgId            uint64
+	sendMu           sync.Mutex
 	clientServer     io.ReadWriter
 	serverClient     io.ReadWriter
 }
@@ -51,6 +53,8 @@ func (c *Connection) receiveOnStream(r io.Reader) (map[string]interface{}, error
 // Send sends the passed data as XPC message.
 // Additional flags can be passed via the flags argument (the default ones are AlwaysSetFlag and if data != nil DataFlag)
 func (c *Connection) Send(data map[string]interface{}, flags ...uint32) error {
+	c.sendMu.Lock()
+	defer c.sendMu.Unlock()
 	f := AlwaysSetFlag
 	if data != nil {
 		f |= DataFlag
@@ -63,7 +67,14 @@ func (c *Connection) Send(data map[string]interface{}, flags ...uint32) error {
 		Body:  data,
 		Id:    c.msgId,
 	}
-	return EncodeMessage(c.clientServer, msg)
+	if err := EncodeMessage(c.clientServer, msg); err != nil {
+		return err
+	}
+	// Every XPC request has its own monotonically increasing identifier. Reusing
+	// ID 1 appears harmless for one-shot services, but dtuhidd cancels a busy
+	// Universal HID channel after a burst of duplicate keyboard report IDs.
+	c.msgId++
+	return nil
 }
 
 func (c *Connection) Close() error {

@@ -205,6 +205,18 @@ func TestTunnelManagerConcurrentAccess(t *testing.T) {
 	}
 }
 
+func TestTunnelHealthTracksDataPlaneExit(t *testing.T) {
+	done := make(chan struct{})
+	tun := Tunnel{done: done, closer: func() error { return nil }}
+	if tun.IsClosed() {
+		t.Fatal("new tunnel reported closed")
+	}
+	close(done)
+	if !tun.IsClosed() {
+		t.Fatal("tunnel did not report its stopped data plane")
+	}
+}
+
 func tunnelManagerWithTunnels(tunnels map[string]Tunnel) *TunnelManager {
 	if tunnels == nil {
 		tunnels = map[string]Tunnel{}

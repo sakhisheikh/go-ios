@@ -412,6 +412,21 @@ func (m *TunnelManager) UpdateTunnels(ctx context.Context) error {
 	maps.Copy(localFailed, m.failedDevices)
 	m.mux.Unlock()
 
+	// A lockdown tunnel can lose its underlying usbmux socket while the phone
+	// remains present in ListDevices. Treat a stopped data plane as absent so
+	// this same update recreates it; otherwise the stale map entry survives
+	// forever and every RemoteXPC client keeps dialing a dead IPv6 route.
+	for udid, tun := range localTunnels {
+		if !tun.IsClosed() {
+			continue
+		}
+		golog.Warn("tunnel data plane stopped; recreating", "module", logModule, "udid", udid)
+		m.mux.Lock()
+		delete(m.tunnels, udid)
+		m.mux.Unlock()
+		delete(localTunnels, udid)
+	}
+
 	devices, err := m.dl.ListDevices()
 	if err != nil {
 		// ListDevices can fail transiently while a device disconnects/reconnects

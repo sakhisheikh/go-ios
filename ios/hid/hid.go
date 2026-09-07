@@ -22,8 +22,9 @@ const (
 	// SurfaceTouchscreenGesture is the trackpad-style pointer surface. It moves a
 	// mirroring host's cursor without putting a contact on the screen.
 	SurfaceTouchscreenGesture uint64 = 1281 // 0x501
-	// SurfaceKeyboardDefault is where a host-side virtual keyboard is registered.
-	// Unlike the touch surfaces it does not pre-exist, so the value is ours.
+	// SurfaceKeyboardDefault is where a host-side virtual keyboard is registered,
+	// which is how text reaches whatever has focus on the device. Unlike the touch
+	// surfaces it does not pre-exist, so the value is ours.
 	SurfaceKeyboardDefault uint64 = 0x100002001
 )
 

@@ -29,12 +29,14 @@ const (
 // monotonic clock, so the sequence is unaffected by wall-clock adjustments.
 var processStart = time.Now()
 
-// Timestamp returns the 48-bit value to stamp a report with. Only monotonicity
-// and the deltas between reports are read from it, not absolute time.
+// Timestamp returns the value to stamp a report with. Only monotonicity and the
+// deltas between reports are read from it, not absolute time.
 func Timestamp() uint64 {
-	return uint64(time.Since(processStart).Nanoseconds()) & (1<<timestampBits - 1)
+	return uint64(time.Since(processStart).Nanoseconds())
 }
 
+// putTimestamp writes the low 48 bits, because the slot is six bytes and a
+// wider value would overwrite the reserved bytes that follow it.
 func putTimestamp(report []byte, ts uint64) {
 	var full [8]byte
 	binary.LittleEndian.PutUint64(full[:], ts&(1<<timestampBits-1))

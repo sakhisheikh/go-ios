@@ -46,8 +46,6 @@ type Point struct {
 type hidConn interface {
 	SendTouchscreen(state TouchState, x, y uint16, serviceID uint64) error
 	SendDigitizer(x, y int32, serviceID uint64) error
-	SendKeyboard(serviceID uint64, usages ...uint8) error
-	CreateKeyboardService(serviceID uint64, product, manufacturer string, vendorID, productID int64) (uint64, error)
 	ListConnectedServices() (map[string]interface{}, error)
 	Close() error
 }
@@ -77,9 +75,6 @@ type Session struct {
 	// rather than leaving the device believing a finger is down.
 	contactDown bool
 	lastContact Point
-
-	keyboardServiceID uint64
-	keyboardCreated   bool
 
 	closed bool
 }
@@ -208,57 +203,6 @@ func (s *Session) MoveDigitizer(ctx context.Context, x, y int32) error {
 	}
 	if err := s.hid.SendDigitizer(x, y, SurfaceTouchscreenGesture); err != nil {
 		return fmt.Errorf("MoveDigitizer: %w", err)
-	}
-	return nil
-}
-
-// Type sends text through a virtual keyboard, registering the keyboard surface
-// on first use. Characters without a HID mapping are skipped.
-func (s *Session) Type(ctx context.Context, text string) error {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-	if err := s.beginGatedGesture(ctx); err != nil {
-		return err
-	}
-	if !s.keyboardCreated {
-		id, err := s.hid.CreateKeyboardService(SurfaceKeyboardDefault, "go-ios Keyboard", "go-ios", 0x05AC, 0x0267)
-		if err != nil {
-			return fmt.Errorf("Type: %w", err)
-		}
-		s.keyboardServiceID = id
-		s.keyboardCreated = true
-	}
-
-	// A key stays held on the device until a report without it arrives, so make
-	// sure everything is released even if we stop mid-word.
-	defer func() {
-		if err := s.hid.SendKeyboard(s.keyboardServiceID); err != nil {
-			golog.Warn("failed to release the keyboard, the device may still consider a key held",
-				"module", logModule, "error", err)
-		}
-	}()
-
-	for _, ch := range text {
-		key, ok := KeyForRune(ch)
-		if !ok {
-			golog.Warn("skipping character without a HID mapping", "module", logModule, "char", string(ch))
-			continue
-		}
-		usages := []uint8{key.Usage}
-		if key.Shift {
-			usages = append(usages, KeyLeftShift)
-		}
-		if err := s.hid.SendKeyboard(s.keyboardServiceID, usages...); err != nil {
-			return fmt.Errorf("Type: failed to press %q: %w", string(ch), err)
-		}
-		// Release everything before the next character, otherwise repeated
-		// characters collapse into one keypress.
-		if err := s.hid.SendKeyboard(s.keyboardServiceID); err != nil {
-			return fmt.Errorf("Type: failed to release %q: %w", string(ch), err)
-		}
-		if err := sleepCtx(ctx, defaultTypingInterval); err != nil {
-			return fmt.Errorf("Type: %w", err)
-		}
 	}
 	return nil
 }

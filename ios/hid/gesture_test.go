@@ -17,7 +17,6 @@ type report struct {
 	kind      string
 	state     TouchState
 	x, y      uint16
-	usages    []uint8
 	serviceID uint64
 }
 
@@ -41,15 +40,6 @@ func (f *fakeHID) SendTouchscreen(state TouchState, x, y uint16, serviceID uint6
 func (f *fakeHID) SendDigitizer(x, y int32, serviceID uint64) error {
 	f.reports = append(f.reports, report{kind: "digitizer", serviceID: serviceID})
 	return nil
-}
-
-func (f *fakeHID) SendKeyboard(serviceID uint64, usages ...uint8) error {
-	f.reports = append(f.reports, report{kind: "keyboard", usages: usages, serviceID: serviceID})
-	return nil
-}
-
-func (f *fakeHID) CreateKeyboardService(serviceID uint64, product, manufacturer string, vendorID, productID int64) (uint64, error) {
-	return serviceID, nil
 }
 
 func (f *fakeHID) ListConnectedServices() (map[string]interface{}, error) { return nil, nil }
@@ -124,40 +114,6 @@ func TestDragSendsOneSampleMoreThanItsSteps(t *testing.T) {
 	assert.Equal(t, TouchRelease, got[5].state)
 	assert.Equal(t, uint16(0), got[0].x, "the first sample is the touch-down at from")
 	assert.Equal(t, uint16(100), got[4].x, "the last contact reaches to")
-}
-
-func TestTypeReleasesBetweenCharacters(t *testing.T) {
-	// Without a release between them, repeated characters collapse into one
-	// keypress on the device.
-	session, fake := openSession()
-	require.NoError(t, session.Type(context.Background(), "aa"))
-
-	var pressed, released int
-	for _, r := range fake.reports {
-		if r.kind != "keyboard" {
-			continue
-		}
-		if len(r.usages) == 0 {
-			released++
-		} else {
-			pressed++
-		}
-	}
-	assert.Equal(t, 2, pressed, "one report per character")
-	assert.GreaterOrEqual(t, released, 2, "and a release after each one")
-}
-
-func TestTypeSkipsCharactersWithNoMapping(t *testing.T) {
-	session, fake := openSession()
-	require.NoError(t, session.Type(context.Background(), "aéb"))
-
-	var pressed int
-	for _, r := range fake.reports {
-		if r.kind == "keyboard" && len(r.usages) > 0 {
-			pressed++
-		}
-	}
-	assert.Equal(t, 2, pressed, "the unmapped rune is skipped rather than failing the call")
 }
 
 func TestCloseLiftsAContactLeftDown(t *testing.T) {

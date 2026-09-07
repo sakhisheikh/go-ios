@@ -87,61 +87,6 @@ func TestBuildTouchscreenReport(t *testing.T) {
 	}
 }
 
-func TestBuildKeyboardReport(t *testing.T) {
-	tests := []struct {
-		name   string
-		usages []uint8
-		want   string
-	}{
-		{
-			name:   "no keys pressed releases everything",
-			usages: nil,
-			want:   "01" + "000000000000000000000000000000000000000000000000000000000000" + "bc9a785634120000",
-		},
-		{
-			// Usage 0x04 is bit 4 of the first bitmap byte.
-			name:   "single letter",
-			usages: []uint8{KeyA},
-			want:   "01" + "100000000000000000000000000000000000000000000000000000000000" + "bc9a785634120000",
-		},
-		{
-			// Left-Shift is usage 0xE1, i.e. bit 1 of bitmap byte 28.
-			name:   "letter with modifier",
-			usages: []uint8{KeyA, KeyLeftShift},
-			want:   "01" + "100000000000000000000000000000000000000000000000000000000200" + "bc9a785634120000",
-		},
-		{
-			name:   "highest representable usage",
-			usages: []uint8{239},
-			want:   "01" + "000000000000000000000000000000000000000000000000000000000080" + "bc9a785634120000",
-		},
-		{
-			// The bitmap is 240 bits wide, so anything beyond it has to be
-			// dropped rather than wrapping onto another key or panicking.
-			name:   "usage beyond the bitmap is ignored",
-			usages: []uint8{240},
-			want:   "01" + "000000000000000000000000000000000000000000000000000000000000" + "bc9a785634120000",
-		},
-		{
-			name:   "usage beyond the bitmap does not panic at the top of the range",
-			usages: []uint8{255},
-			want:   "01" + "000000000000000000000000000000000000000000000000000000000000" + "bc9a785634120000",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := BuildKeyboardReport(tt.usages, goldenTimestamp)
-			if len(got) != KeyboardReportLen {
-				t.Errorf("length = %d, want %d", len(got), KeyboardReportLen)
-			}
-			if hex.EncodeToString(got) != tt.want {
-				t.Errorf("report mismatch\n got %s\nwant %s", hex.EncodeToString(got), tt.want)
-			}
-		})
-	}
-}
-
 // The timestamp field is six bytes wide, so a value that does not fit has to be
 // truncated to its low 48 bits instead of corrupting the trailing reserved bytes.
 func TestTimestampIsTruncatedToFieldWidth(t *testing.T) {
@@ -163,48 +108,5 @@ func TestTimestampFitsInFieldAndAdvances(t *testing.T) {
 	second := Timestamp()
 	if second < first {
 		t.Errorf("Timestamp() went backwards: %d then %d", first, second)
-	}
-}
-
-func TestKeyForRune(t *testing.T) {
-	tests := []struct {
-		ch    rune
-		usage uint8
-		shift bool
-	}{
-		{'a', KeyA, false},
-		{'z', KeyZ, false},
-		{'A', KeyA, true},
-		{'Z', KeyZ, true},
-		{'1', Key1, false},
-		{'9', Key9, false},
-		// '0' sits after '9' in the usage table, not before '1'.
-		{'0', Key0, false},
-		{'!', Key1, true},
-		{')', Key0, true},
-		{' ', KeySpace, false},
-		{'\n', KeyEnter, false},
-		{'\b', KeyBackspace, false},
-		{'\x7f', KeyBackspace, false},
-		{',', KeyComma, false},
-		{'?', KeySlash, true},
-		{'~', KeyGrave, true},
-	}
-
-	for _, tt := range tests {
-		t.Run(string(tt.ch), func(t *testing.T) {
-			k, ok := KeyForRune(tt.ch)
-			if !ok {
-				t.Fatalf("KeyForRune(%q) not found", tt.ch)
-			}
-			if k.Usage != tt.usage || k.Shift != tt.shift {
-				t.Errorf("KeyForRune(%q) = {0x%02X, shift=%v}, want {0x%02X, shift=%v}",
-					tt.ch, k.Usage, k.Shift, tt.usage, tt.shift)
-			}
-		})
-	}
-
-	if _, ok := KeyForRune('é'); ok {
-		t.Error("KeyForRune should report no mapping for a non-US-layout rune")
 	}
 }

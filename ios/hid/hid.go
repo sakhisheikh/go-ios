@@ -22,12 +22,6 @@ const (
 	// SurfaceTouchscreenGesture is the trackpad-style pointer surface. It moves a
 	// mirroring host's cursor without putting a contact on the screen.
 	SurfaceTouchscreenGesture uint64 = 1281 // 0x501
-	// SurfaceKeyboardDefault is where a host-side virtual keyboard is registered,
-	// which is how text reaches whatever has focus on the device. Unlike the touch
-	// surfaces it does not pre-exist, so the value is chosen rather than reported.
-	// This one is the value the device is known to accept; what it makes of the
-	// number is unknown, and CreateKeyboardService returns the id it settled on.
-	SurfaceKeyboardDefault uint64 = 0x100002001
 )
 
 type UniversalConnection struct {
@@ -83,38 +77,6 @@ func (c *UniversalConnection) SendDigitizer(x, y int32, serviceID uint64) error 
 		return fmt.Errorf("SendDigitizer: %w", err)
 	}
 	return nil
-}
-
-// SendKeyboard reports which keys are held down right now, all of them, rather
-// than what just changed. To release a key, send another report that leaves it
-// out. To press the same key twice, send an empty report in between, or the
-// device sees one long press. An empty report releases everything.
-func (c *UniversalConnection) SendKeyboard(serviceID uint64, usages ...uint8) error {
-	if err := c.SendReport(serviceID, BuildKeyboardReport(usages, Timestamp())); err != nil {
-		return fmt.Errorf("SendKeyboard: %w", err)
-	}
-	return nil
-}
-
-// CreateKeyboardService registers a virtual keyboard and returns the _ServiceID
-// assigned to it. It must be created before any keyboard report is accepted.
-func (c *UniversalConnection) CreateKeyboardService(serviceID uint64, product, manufacturer string, vendorID, productID int64) (uint64, error) {
-	if err := c.conn.Send(buildCreateKeyboardPayload(serviceID, product, manufacturer, vendorID, productID), xpc.HeartbeatRequestFlag); err != nil {
-		return 0, fmt.Errorf("CreateKeyboardService: failed to send request: %w", err)
-	}
-	res, err := c.conn.ReceiveOnServerClientStream()
-	if err != nil {
-		return 0, fmt.Errorf("CreateKeyboardService: failed to read response: %w", err)
-	}
-	// dtuhidd echoes the ID it settled on, and has been seen to omit it; the
-	// requested one is what it assigns in that case.
-	if assigned, ok := res["serviceID"].(uint64); ok {
-		return assigned, nil
-	}
-	if assigned, ok := res["serviceID"].(int64); ok {
-		return uint64(assigned), nil
-	}
-	return serviceID, nil
 }
 
 func (c *UniversalConnection) Close() error {

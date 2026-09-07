@@ -6,7 +6,6 @@ import (
 )
 
 const (
-	reportIDKeyboard    = 0x01
 	reportIDTouchscreen = 0x09
 	reportIDDigitizer   = 0x13
 )
@@ -15,7 +14,6 @@ const (
 const (
 	DigitizerReportLen   = 19
 	TouchscreenReportLen = 58
-	KeyboardReportLen    = 39
 )
 
 // timestampBits is the width of the report timestamp field. Six bytes on the
@@ -28,10 +26,6 @@ const (
 	TouchContact TouchState = 0xC2
 	TouchRelease TouchState = 0x02
 )
-
-const keyboardBitmapLen = 30
-
-const maxKeyboardUsage = keyboardBitmapLen * 8 // 240
 
 // processStart anchors Timestamp to a monotonic origin. time.Since reads Go's
 // monotonic clock, so the sequence is unaffected by wall-clock adjustments.
@@ -85,28 +79,5 @@ func BuildTouchscreenReport(state TouchState, x, y uint16, ts uint64) []byte {
 	binary.LittleEndian.PutUint16(report[6:8], y)
 	report[40] = 0x02
 	putTimestamp(report[44:50], ts)
-	return report
-}
-
-// BuildKeyboardReport takes every usage held down right now, rather than what
-// just changed. A release is therefore a report that leaves the usage out.
-// Usages at or above 240 do not fit the bitmap and are ignored. Layout: [0]=report ID, [1:31]=240-bit usage
-// bitmap, [31:37]=timestamp, [37:39] reserved.
-//
-// Usage 4, the letter a, with timestamp 0xa1b2c3d4. Bit 4 lands in byte 1 of the
-// bitmap, which is why the second byte is 0x10:
-//
-//	01 10 00..00 d4c3b2a10000 0000
-//	ID bitmap    timestamp    res
-func BuildKeyboardReport(usages []uint8, ts uint64) []byte {
-	report := make([]byte, KeyboardReportLen)
-	report[0] = reportIDKeyboard
-	for _, usage := range usages {
-		if usage >= maxKeyboardUsage {
-			continue
-		}
-		report[1+usage/8] |= 1 << (usage % 8)
-	}
-	putTimestamp(report[31:37], ts)
 	return report
 }

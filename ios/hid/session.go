@@ -267,12 +267,6 @@ func (s *Session) Close() error {
 	return nil
 }
 
-func (s *Session) StreamActive() bool {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-	return s.displayService != nil && !s.streamLost.Load()
-}
-
 // EnsureStream starts the media stream unless one is running. Optional, but it
 // moves the negotiation out of the first gesture, whose samples would be lost.
 func (s *Session) EnsureStream(ctx context.Context) error {

@@ -81,7 +81,6 @@ func TestCloseOnUnopenedSessionIsSafe(t *testing.T) {
 
 	require.NoError(t, s.Close())
 	require.NoError(t, s.Close())
-	assert.False(t, s.StreamActive())
 }
 
 func TestNewSessionRejectsDeviceWithoutTunnel(t *testing.T) {
@@ -101,7 +100,7 @@ func TestUserspaceTunnelIsRejectedForStreams(t *testing.T) {
 	// see the same refusal a gesture would hit.
 	err := s.EnsureStream(context.Background())
 	assert.ErrorIs(t, err, display.ErrUserspaceTunnelUnsupported)
-	assert.False(t, s.StreamActive(), "a rejected stream must leave no state behind")
+	assert.Nil(t, s.displayService, "a rejected stream must leave no state behind")
 }
 
 // A stray release, which an input stream can produce, must not error or reach

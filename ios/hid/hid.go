@@ -46,8 +46,8 @@ func (c *UniversalConnection) ListConnectedServices() (map[string]interface{}, e
 	return res, nil
 }
 
-// SendReport delivers a raw HID report, built by one of the Build* functions.
-// Reports are not acknowledged, so a nil error means written, not acted on.
+// SendReport writes a report from BuildTouchscreenReport. The device never
+// acknowledges one, so a nil error means it was sent, not that anything moved.
 func (c *UniversalConnection) SendReport(serviceID uint64, report []byte) error {
 	if len(report) == 0 {
 		return fmt.Errorf("SendReport: report is empty")

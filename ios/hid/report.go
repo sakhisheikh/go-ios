@@ -88,9 +88,9 @@ func BuildTouchscreenReport(state TouchState, x, y uint16, ts uint64) []byte {
 	return report
 }
 
-// BuildKeyboardReport takes every usage held down right now, not what changed,
-// so a release is a report without that usage. Usages at or above 240 do not
-// fit the bitmap and are ignored. Layout: [0]=report ID, [1:31]=240-bit usage
+// BuildKeyboardReport takes every usage held down right now, rather than what
+// just changed. A release is therefore a report that leaves the usage out.
+// Usages at or above 240 do not fit the bitmap and are ignored. Layout: [0]=report ID, [1:31]=240-bit usage
 // bitmap, [31:37]=timestamp, [37:39] reserved.
 //
 // Usage 4, the letter a, with timestamp 0xa1b2c3d4. Bit 4 lands in byte 1 of the

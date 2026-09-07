@@ -85,10 +85,10 @@ func (c *UniversalConnection) SendDigitizer(x, y int32, serviceID uint64) error 
 	return nil
 }
 
-// SendKeyboard reports which keys are held down right now, all of them, not
-// what changed. So a key is released by sending again without it, and pressing
-// the same key twice needs an empty report in between. Pass no usages to
-// release everything.
+// SendKeyboard reports which keys are held down right now, all of them, rather
+// than what just changed. To release a key, send another report that leaves it
+// out. To press the same key twice, send an empty report in between, or the
+// device sees one long press. An empty report releases everything.
 func (c *UniversalConnection) SendKeyboard(serviceID uint64, usages ...uint8) error {
 	if err := c.SendReport(serviceID, BuildKeyboardReport(usages, Timestamp())); err != nil {
 		return fmt.Errorf("SendKeyboard: %w", err)

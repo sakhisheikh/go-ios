@@ -24,7 +24,9 @@ const (
 	SurfaceTouchscreenGesture uint64 = 1281 // 0x501
 	// SurfaceKeyboardDefault is where a host-side virtual keyboard is registered,
 	// which is how text reaches whatever has focus on the device. Unlike the touch
-	// surfaces it does not pre-exist, so the value is ours.
+	// surfaces it does not pre-exist, so the value is chosen rather than reported.
+	// This one is the value the device is known to accept; what it makes of the
+	// number is unknown, and CreateKeyboardService returns the id it settled on.
 	SurfaceKeyboardDefault uint64 = 0x100002001
 )
 

@@ -19,9 +19,6 @@ const (
 // enumerates them, and its values are the ones to prefer.
 const (
 	SurfaceMainTouchscreen uint64 = 257 // 0x101
-	// SurfaceTouchscreenGesture is the trackpad-style pointer surface. It moves a
-	// mirroring host's cursor without putting a contact on the screen.
-	SurfaceTouchscreenGesture uint64 = 1281 // 0x501
 )
 
 type UniversalConnection struct {
@@ -66,15 +63,6 @@ func (c *UniversalConnection) SendReport(serviceID uint64, report []byte) error 
 func (c *UniversalConnection) SendTouchscreen(state TouchState, x, y uint16, serviceID uint64) error {
 	if err := c.SendReport(serviceID, BuildTouchscreenReport(state, x, y, Timestamp())); err != nil {
 		return fmt.Errorf("SendTouchscreen: %w", err)
-	}
-	return nil
-}
-
-// SendDigitizer posts one pointer report at (x, y). It moves the cursor on the
-// gesture surface; an on-screen touch needs SendTouchscreen.
-func (c *UniversalConnection) SendDigitizer(x, y int32, serviceID uint64) error {
-	if err := c.SendReport(serviceID, BuildDigitizerReport(x, y, Timestamp())); err != nil {
-		return fmt.Errorf("SendDigitizer: %w", err)
 	}
 	return nil
 }

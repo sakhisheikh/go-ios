@@ -7,12 +7,10 @@ import (
 
 const (
 	reportIDTouchscreen = 0x09
-	reportIDDigitizer   = 0x13
 )
 
 // Report lengths. The device rejects reports of any other size for these surfaces.
 const (
-	DigitizerReportLen   = 19
 	TouchscreenReportLen = 58
 )
 
@@ -41,23 +39,6 @@ func putTimestamp(report []byte, ts uint64) {
 	var full [8]byte
 	binary.LittleEndian.PutUint64(full[:], ts&(1<<timestampBits-1))
 	copy(report, full[:6])
-}
-
-// BuildDigitizerReport places the pointer at (x, y), signed 32-bit.
-// Layout: [0]=report ID, [1:5]=X int32 LE, [5:9]=Y int32 LE, [9:11] reserved,
-// [11:17]=timestamp, [17:19] reserved.
-//
-// x=100 y=200 with timestamp 0xa1b2c3d4:
-//
-//	13 64000000 c8000000 0000 d4c3b2a10000 0000
-//	ID x=100    y=200    res  timestamp    res
-func BuildDigitizerReport(x, y int32, ts uint64) []byte {
-	report := make([]byte, DigitizerReportLen)
-	report[0] = reportIDDigitizer
-	binary.LittleEndian.PutUint32(report[1:5], uint32(x))
-	binary.LittleEndian.PutUint32(report[5:9], uint32(y))
-	putTimestamp(report[11:17], ts)
-	return report
 }
 
 // BuildTouchscreenReport carries a contact state and position.

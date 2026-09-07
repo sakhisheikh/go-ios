@@ -45,7 +45,6 @@ type Point struct {
 // without a device.
 type hidConn interface {
 	SendTouchscreen(state TouchState, x, y uint16, serviceID uint64) error
-	SendDigitizer(x, y int32, serviceID uint64) error
 	ListConnectedServices() (map[string]interface{}, error)
 	Close() error
 }
@@ -189,20 +188,6 @@ func (s *Session) stroke(ctx context.Context, points []Point, duration time.Dura
 		if err := sleepCtx(ctx, interval); err != nil {
 			return err
 		}
-	}
-	return nil
-}
-
-// MoveDigitizer moves the pointer a mirroring host draws, without putting a
-// contact on the screen. Coordinates are the surface's own units, not a Point.
-func (s *Session) MoveDigitizer(ctx context.Context, x, y int32) error {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-	if err := s.beginGatedGesture(ctx); err != nil {
-		return err
-	}
-	if err := s.hid.SendDigitizer(x, y, SurfaceTouchscreenGesture); err != nil {
-		return fmt.Errorf("MoveDigitizer: %w", err)
 	}
 	return nil
 }

@@ -149,15 +149,6 @@ func TestTouchMoveKeepsTheContactDown(t *testing.T) {
 	assert.Equal(t, TouchRelease, got[2].state)
 }
 
-func TestMoveDigitizerUsesTheGestureSurface(t *testing.T) {
-	session, fake := openSession()
-	require.NoError(t, session.MoveDigitizer(context.Background(), 5, 6))
-
-	require.Len(t, fake.reports, 1)
-	assert.Equal(t, "digitizer", fake.reports[0].kind)
-	assert.Equal(t, SurfaceTouchscreenGesture, fake.reports[0].serviceID)
-}
-
 func TestStrokeSpreadsItsDurationAcrossThePath(t *testing.T) {
 	session, _ := openSession()
 	start := time.Now()

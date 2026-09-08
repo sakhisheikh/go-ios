@@ -66,8 +66,8 @@ type Session struct {
 	receiver       *display.Receiver
 	streamAnswer   display.StreamAnswer
 	drainDone      chan struct{}
-	// Set by the drain goroutine when the host stops receiving. Reports would be
-	// accepted and dropped from then on, so the next gesture re-negotiates.
+	// Set by the drain goroutine when reading the stream fails. A phone that
+	// simply stops sending does not error, so silence is not caught here.
 	streamLost atomic.Bool
 
 	// Tracks a contact held by the Touch* methods, so closing mid-gesture lifts it
@@ -295,7 +295,7 @@ func (s *Session) checkOpen() error {
 }
 
 // ensureStream starts the stream unless one is running, with the mutex held. One
-// the host stopped receiving is re-negotiated, and any failure tears down first.
+// reading the stream failed is re-negotiated, and any failure tears down first.
 func (s *Session) ensureStream(ctx context.Context) error {
 	if s.displayService != nil {
 		if !s.streamLost.Load() {

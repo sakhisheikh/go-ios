@@ -36,9 +36,9 @@ func TestBuildTouchscreenReport(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := BuildTouchscreenReport(tt.state, tt.x, tt.y, goldenTimestamp)
-			if len(got) != TouchscreenReportLen {
-				t.Errorf("length = %d, want %d", len(got), TouchscreenReportLen)
+			got := buildTouchscreenReport(tt.state, tt.x, tt.y, goldenTimestamp)
+			if len(got) != touchscreenReportLen {
+				t.Errorf("length = %d, want %d", len(got), touchscreenReportLen)
 			}
 			if hex.EncodeToString(got) != tt.want {
 				t.Errorf("report mismatch\n got %s\nwant %s", hex.EncodeToString(got), tt.want)
@@ -50,9 +50,9 @@ func TestBuildTouchscreenReport(t *testing.T) {
 // The timestamp field is six bytes wide, so a value that does not fit has to be
 // truncated to its low 48 bits instead of corrupting the trailing reserved bytes.
 func TestTimestampIsTruncatedToFieldWidth(t *testing.T) {
-	got := BuildTouchscreenReport(TouchContact, 0, 0, 0xFFFFFFFFFFFFFFFF)
-	if len(got) != TouchscreenReportLen {
-		t.Fatalf("length = %d, want %d", len(got), TouchscreenReportLen)
+	got := buildTouchscreenReport(TouchContact, 0, 0, 0xFFFFFFFFFFFFFFFF)
+	if len(got) != touchscreenReportLen {
+		t.Fatalf("length = %d, want %d", len(got), touchscreenReportLen)
 	}
 	if ts := hex.EncodeToString(got[44:50]); ts != "ffffffffffff" {
 		t.Errorf("timestamp = %s, want ffffffffffff", ts)
@@ -67,9 +67,9 @@ func TestTimestampIsTruncatedToFieldWidth(t *testing.T) {
 // so a value that went backwards would read as a gesture moving backwards in
 // time. Fitting the slot is putTimestamp's job, not this one's.
 func TestTimestampAdvances(t *testing.T) {
-	first := Timestamp()
-	second := Timestamp()
+	first := timestamp()
+	second := timestamp()
 	if second < first {
-		t.Errorf("Timestamp() went backwards: %d then %d", first, second)
+		t.Errorf("timestamp() went backwards: %d then %d", first, second)
 	}
 }

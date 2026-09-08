@@ -14,36 +14,29 @@ import (
 // report is one call recorded by fakeHID, so a test can assert what a gesture
 // put on the wire rather than what it meant to.
 type report struct {
-	kind      string
-	state     TouchState
-	x, y      uint16
-	serviceID uint64
+	kind  string
+	state TouchState
+	x, y  uint16
 }
 
 type fakeHID struct {
 	reports []report
-	// failAt makes the nth SendTouchscreen call fail, to exercise the paths that
+	// failAt makes the nth SendTouch call fail, to exercise the paths that
 	// have to clean up after a gesture breaks part way through.
 	failAt int
 	calls  int
 }
 
-func (f *fakeHID) SendTouchscreen(state TouchState, x, y uint16, serviceID uint64) error {
+func (f *fakeHID) SendTouch(state TouchState, p Point) error {
 	f.calls++
 	if f.failAt > 0 && f.calls == f.failAt {
 		return errors.New("send failed")
 	}
-	f.reports = append(f.reports, report{kind: "touch", state: state, x: x, y: y, serviceID: serviceID})
+	f.reports = append(f.reports, report{kind: "touch", state: state, x: p.X, y: p.Y})
 	return nil
 }
 
-func (f *fakeHID) SendDigitizer(x, y int32, serviceID uint64) error {
-	f.reports = append(f.reports, report{kind: "digitizer", serviceID: serviceID})
-	return nil
-}
-
-func (f *fakeHID) ListConnectedServices() (map[string]interface{}, error) { return nil, nil }
-func (f *fakeHID) Close() error                                           { return nil }
+func (f *fakeHID) Close() error { return nil }
 
 // stubStream stands in for a running media stream. ensureStream returns as soon
 // as it sees one, so it never has to do anything.
@@ -80,7 +73,6 @@ func TestTapContactsThenReleasesAtTheSamePoint(t *testing.T) {
 	assert.Equal(t, [2]uint16{100, 200}, [2]uint16{got[0].x, got[0].y})
 	assert.Equal(t, [2]uint16{100, 200}, [2]uint16{got[1].x, got[1].y},
 		"the release has to land where the contact did, or it reads as a flick")
-	assert.Equal(t, SurfaceMainTouchscreen, got[0].serviceID)
 }
 
 func TestStrokeReleasesWhereTheContactActuallyIs(t *testing.T) {

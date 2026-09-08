@@ -39,24 +39,9 @@ func dict(t *testing.T, m map[string]interface{}, key string) map[string]interfa
 	return v
 }
 
-func TestListServicesPayload(t *testing.T) {
-	body := roundTrip(t, buildListServicesPayload())
-
-	if got := body["messageType"]; got != "Request" {
-		t.Errorf("messageType = %v, want Request", got)
-	}
-	if got := body["featureIdentifier"]; got != universalFeatureIdentifier {
-		t.Errorf("featureIdentifier = %v, want %s", got, universalFeatureIdentifier)
-	}
-	payload := dict(t, body, "payload")
-	if _, ok := payload["connectedServices"].(map[string]interface{}); !ok {
-		t.Errorf("connectedServices is %T, want an empty dictionary", payload["connectedServices"])
-	}
-}
-
 func TestSendReportPayload(t *testing.T) {
-	report := BuildTouchscreenReport(TouchContact, 42, 43, goldenTimestamp)
-	body := roundTrip(t, buildSendReportPayload(SurfaceMainTouchscreen, report))
+	report := buildTouchscreenReport(TouchContact, 42, 43, goldenTimestamp)
+	body := roundTrip(t, buildSendReportPayload(surfaceMainTouchscreen, report))
 
 	send := dict(t, dict(t, body, "payload"), "send")
 
@@ -73,7 +58,7 @@ func TestSendReportPayload(t *testing.T) {
 	if !ok {
 		t.Fatalf("_1 is %T, want uint64", send["_1"])
 	}
-	if serviceID != SurfaceMainTouchscreen {
-		t.Errorf("_1 = %d, want %d", serviceID, SurfaceMainTouchscreen)
+	if serviceID != surfaceMainTouchscreen {
+		t.Errorf("_1 = %d, want %d", serviceID, surfaceMainTouchscreen)
 	}
 }

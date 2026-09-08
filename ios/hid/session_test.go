@@ -70,8 +70,6 @@ func TestClosedSessionRejectsEverything(t *testing.T) {
 	assert.Error(t, s.TouchMove(ctx, Point{}))
 	assert.Error(t, s.TouchUp(ctx, Point{}))
 	assert.Error(t, s.EnsureStream(ctx))
-	_, err := s.ListServices()
-	assert.Error(t, err)
 }
 
 // Close runs on the teardown path of a failed open, so it must tolerate a

@@ -1,5 +1,5 @@
-// Package hid injects touch, button and keyboard events over CoreDevice. Touch
-// needs a media stream running to be accepted, which Session owns. iOS 27+.
+// Package hid injects touch events over CoreDevice. Touch needs a media stream
+// running to be accepted, which Session owns. iOS 27+.
 package hid
 
 import (
@@ -15,11 +15,9 @@ const (
 	universalFeatureIdentifier = "com.apple.coredevice.feature.remote.universalhidservice"
 )
 
-// _ServiceIDs of the surfaces the device registers. ListConnectedServices
-// enumerates them, and its values are the ones to prefer.
-const (
-	SurfaceMainTouchscreen uint64 = 257 // 0x101
-)
+// surfaceMainTouchscreen is the service id the device gives its built in
+// touchscreen. Every touch report goes there.
+const surfaceMainTouchscreen uint64 = 257 // 0x101
 
 type UniversalConnection struct {
 	conn *xpc.Connection
@@ -35,33 +33,23 @@ func NewUniversal(device ios.DeviceEntry) (*UniversalConnection, error) {
 	return &UniversalConnection{conn: conn}, nil
 }
 
-func (c *UniversalConnection) ListConnectedServices() (map[string]interface{}, error) {
-	if err := c.conn.Send(buildListServicesPayload(), xpc.HeartbeatRequestFlag); err != nil {
-		return nil, fmt.Errorf("ListConnectedServices: failed to send request: %w", err)
-	}
-	res, err := c.conn.ReceiveOnServerClientStream()
-	if err != nil {
-		return nil, fmt.Errorf("ListConnectedServices: failed to read response: %w", err)
-	}
-	return res, nil
-}
-
 // The device never returns a response, so a nil error means it was sent, not that anything moved.
-func (c *UniversalConnection) SendReport(serviceID uint64, report []byte) error {
+func (c *UniversalConnection) sendReport(serviceID uint64, report []byte) error {
 	if len(report) == 0 {
-		return fmt.Errorf("SendReport: report is empty")
+		return fmt.Errorf("sendReport: report is empty")
 	}
 	if err := c.conn.Send(buildSendReportPayload(serviceID, report), xpc.HeartbeatRequestFlag); err != nil {
-		return fmt.Errorf("SendReport: failed to send report to surface %d: %w", serviceID, err)
+		return fmt.Errorf("sendReport: failed to send report to surface %d: %w", serviceID, err)
 	}
 	return nil
 }
 
-// SendTouchscreen posts one touchscreen report at (x, y). Every TouchContact
-// means "in contact here", so a drag is a run of them ending in TouchRelease.
-func (c *UniversalConnection) SendTouchscreen(state TouchState, x, y uint16, serviceID uint64) error {
-	if err := c.SendReport(serviceID, BuildTouchscreenReport(state, x, y, Timestamp())); err != nil {
-		return fmt.Errorf("SendTouchscreen: %w", err)
+// SendTouch posts one touch report at p. Every TouchContact means "in contact
+// here", so a drag is a run of them ending in TouchRelease.
+func (c *UniversalConnection) SendTouch(state TouchState, p Point) error {
+	report := buildTouchscreenReport(state, p.X, p.Y, timestamp())
+	if err := c.sendReport(surfaceMainTouchscreen, report); err != nil {
+		return fmt.Errorf("SendTouch: %w", err)
 	}
 	return nil
 }

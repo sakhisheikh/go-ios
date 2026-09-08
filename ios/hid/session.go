@@ -2,7 +2,10 @@ package hid
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
+	"net"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -44,8 +47,7 @@ type Point struct {
 // display.Service this package uses, extracted so gestures can be exercised
 // without a device.
 type hidConn interface {
-	SendTouchscreen(state TouchState, x, y uint16, serviceID uint64) error
-	ListConnectedServices() (map[string]interface{}, error)
+	SendTouch(state TouchState, p Point) error
 	Close() error
 }
 
@@ -91,25 +93,16 @@ func NewSession(device ios.DeviceEntry) (*Session, error) {
 	return session, nil
 }
 
-func (s *Session) ListServices() (map[string]interface{}, error) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-	if err := s.checkOpen(); err != nil {
-		return nil, err
-	}
-	return s.hid.ListConnectedServices()
-}
-
 func (s *Session) Tap(ctx context.Context, point Point) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	if err := s.beginGatedGesture(ctx); err != nil {
 		return err
 	}
-	if err := s.hid.SendTouchscreen(TouchContact, point.X, point.Y, SurfaceMainTouchscreen); err != nil {
+	if err := s.hid.SendTouch(TouchContact, point); err != nil {
 		return fmt.Errorf("Tap: %w", err)
 	}
-	if err := s.hid.SendTouchscreen(TouchRelease, point.X, point.Y, SurfaceMainTouchscreen); err != nil {
+	if err := s.hid.SendTouch(TouchRelease, point); err != nil {
 		return fmt.Errorf("Tap: %w", err)
 	}
 	return nil
@@ -169,7 +162,7 @@ func (s *Session) stroke(ctx context.Context, points []Point, duration time.Dura
 		if !contactDown {
 			return
 		}
-		if err := s.hid.SendTouchscreen(TouchRelease, at.X, at.Y, SurfaceMainTouchscreen); err != nil {
+		if err := s.hid.SendTouch(TouchRelease, at); err != nil {
 			golog.Warn("failed to lift the contact after a gesture, the device may still consider the screen touched",
 				"module", logModule, "error", err)
 		}
@@ -180,7 +173,7 @@ func (s *Session) stroke(ctx context.Context, points []Point, duration time.Dura
 		interval = duration / time.Duration(len(points)-1)
 	}
 	for i, point := range points {
-		if err := s.hid.SendTouchscreen(TouchContact, point.X, point.Y, SurfaceMainTouchscreen); err != nil {
+		if err := s.hid.SendTouch(TouchContact, point); err != nil {
 			return fmt.Errorf("contact sample %d/%d: %w", i+1, len(points), err)
 		}
 		contactDown = true
@@ -215,7 +208,7 @@ func (s *Session) TouchUp(_ context.Context, point Point) error {
 	if !s.contactDown {
 		return nil
 	}
-	if err := s.hid.SendTouchscreen(TouchRelease, point.X, point.Y, SurfaceMainTouchscreen); err != nil {
+	if err := s.hid.SendTouch(TouchRelease, point); err != nil {
 		return fmt.Errorf("TouchUp: %w", err)
 	}
 	s.contactDown = false
@@ -228,7 +221,7 @@ func (s *Session) sendContact(ctx context.Context, point Point, op string) error
 	if err := s.beginGatedGesture(ctx); err != nil {
 		return err
 	}
-	if err := s.hid.SendTouchscreen(TouchContact, point.X, point.Y, SurfaceMainTouchscreen); err != nil {
+	if err := s.hid.SendTouch(TouchContact, point); err != nil {
 		return fmt.Errorf("%s: %w", op, err)
 	}
 	s.contactDown = true
@@ -249,7 +242,7 @@ func (s *Session) Close() error {
 	// Lift a contact left down by an interrupted input stream first: once the
 	// stream is gone the device would keep believing a finger is on the screen.
 	if s.contactDown {
-		if err := s.hid.SendTouchscreen(TouchRelease, s.lastContact.X, s.lastContact.Y, SurfaceMainTouchscreen); err != nil {
+		if err := s.hid.SendTouch(TouchRelease, s.lastContact); err != nil {
 			golog.Warn("failed to lift a held contact while closing, the device may still consider the screen touched",
 				"module", logModule, "error", err)
 		}
@@ -325,7 +318,8 @@ func (s *Session) ensureStream(ctx context.Context) error {
 	s.drainDone = make(chan struct{})
 	go func(done chan struct{}) {
 		defer close(done)
-		if err := receiver.Drain(); err != nil {
+		// A close from teardown is how this ends, so it is not a lost stream.
+		if _, err := io.Copy(io.Discard, receiver); err != nil && !errors.Is(err, net.ErrClosed) {
 			golog.Warn("the media stream that gates touch input stopped",
 				"module", logModule, "error", err)
 			s.streamLost.Store(true)
@@ -349,7 +343,7 @@ func (s *Session) ensureStream(ctx context.Context) error {
 		return fmt.Errorf("failed to start the media stream touch input requires: %w", err)
 	}
 
-	golog.Info("media stream started, touch surfaces authenticated", "module", logModule,
+	golog.Info("media stream started, touch reports will now be applied", "module", logModule,
 		"receiver", receiver.IP(), "port", receiver.Port())
 
 	// Not tied to ctx on purpose: the stream is already negotiated, and giving up

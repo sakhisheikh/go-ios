@@ -34,4 +34,3 @@ go-ncm
 .circleci/
 __debug_bin
 dump-*
-.docent/

@@ -294,8 +294,9 @@ func (s *Session) checkOpen() error {
 	return nil
 }
 
-// ensureStream starts the stream unless one is running, with the mutex held. One
-// reading the stream failed is re-negotiated, and any failure tears down first.
+// ensureStream starts the stream unless one is running, with the mutex held. A
+// stream whose reads have started failing is rebuilt, and any failure here tears
+// down whatever was set up.
 func (s *Session) ensureStream(ctx context.Context) error {
 	if s.displayService != nil {
 		if !s.streamLost.Load() {
